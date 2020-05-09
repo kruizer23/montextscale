@@ -47,10 +47,6 @@ import time
 # ***************************************************************************************
 # Program return codes.
 RESULT_OK = 0
-# Font scaling factor in case multiple screen are connected.
-FONT_SCALING_MULTI_SCREEN = 1.00
-# Font scaling factor in case only a single screen is connected.
-FONT_SCALING_SINGLE_SCREEN = 1.25
 
 
 # ***************************************************************************************
@@ -70,15 +66,22 @@ def main():
     # Add optional command line parameters.
     parser.add_argument('-d', '--debug', action='store_true', dest='debug_enabled', default=False,
                         help="enable debug messages on the standard output.")
+    parser.add_argument('-s', type=str, dest='scaling_single', default='1.25',
+                        help='text scaling factor for single screen.')
+    parser.add_argument('-m', type=str, dest='scaling_multi', default='1.00',
+                        help='text scaling factor for multiple screens.')
     # Perform actual command line parameter parsing.
     args = parser.parse_args()
+    # Set the configuration values that where specified on the command line.
+    cfg_text_scaling_single_screen = args.scaling_single
+    cfg_text_scaling_multi_screen = args.scaling_multi
 
     # Enable debug logging level if requested.
     if args.debug_enabled:
         logging.basicConfig(level=logging.DEBUG)
 
-    # Set the lat screen count to an invalid value
-    last_screen_count = -1
+    # Set the last screen count to an invalid value
+    last_screen_count = 0
 
     # Enter loop that waits for the xrandr command to become available. This is typically
     # after a few second after the user logged in.
@@ -101,17 +104,17 @@ def main():
         # Obtain the current number of connected screens.
         current_screen_count = get_connected_screen_count()
 
-        # Only continue if the last screen count is initialized and the number of
-        # connected screens is valid
-        if last_screen_count != -1 and current_screen_count > 0:
+        # Only continue if the the number of connected screens is valid
+        if current_screen_count > 0:
             # Detect change in screen count
             if (current_screen_count != last_screen_count):
                 # Do we have multiple screens?
                 if current_screen_count > 1:
                     # Set the font scaling for multiple screens
-                    set_gnome_font_scaling(FONT_SCALING_MULTI_SCREEN)
+                    set_gnome_font_scaling(cfg_text_scaling_multi_screen)
                 else:
-                    set_gnome_font_scaling(FONT_SCALING_SINGLE_SCREEN)
+                    # Set the font scaling for a single screen
+                    set_gnome_font_scaling(cfg_text_scaling_single_screen)
 
         # Store screen count for the next loop iteration
         last_screen_count = current_screen_count
