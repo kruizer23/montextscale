@@ -80,7 +80,23 @@ def main():
     # Set the lat screen count to an invalid value
     last_screen_count = -1
 
-    # Enter the program loop.
+    # Enter loop that waits for the xrandr command to become available. This is typically
+    # after a few second after the user logged in.
+    while True:
+        # Sleep in between to not hog up the CPU.
+        time.sleep(5)
+        # Attempt to run the xrandr command.
+        try:
+            subprocess.Popen(["xrandr"])
+        # Restart loop if the command execution failed.
+        except:
+            pass
+        # Break the loop now that the xrandr command is available.
+        else:
+            break
+
+    # Enter the main program loop. It sleeps in between to it is fine to continuously
+    # run this script in the background.
     while True:
         # Obtain the current number of connected screens.
         current_screen_count = get_connected_screen_count()
@@ -121,9 +137,9 @@ def get_connected_screen_count():
     proc_wc     = subprocess.Popen(['wc', '-l'], stdin=proc_grep.stdout, stdout=subprocess.PIPE)
     # Wait for the last subprocess to exit and get the output.
     cmd_output = proc_wc.communicate()[0]
-
     # Output information for debugging purposes.
     logging.debug('xrandr pipe command returned {} with output {}'.format(proc_wc.returncode, cmd_output))
+
     # Process the output if the last subprocess was successful.
     if proc_wc.returncode == 0:
         try:
