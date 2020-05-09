@@ -37,8 +37,9 @@ __docformat__ = 'reStructuredText'
 #  Imports
 # ***************************************************************************************
 import logging
-import os
 import argparse
+import subprocess
+import time
 
 
 # ***************************************************************************************
@@ -46,6 +47,10 @@ import argparse
 # ***************************************************************************************
 # Program return codes.
 RESULT_OK = 0
+# Font scaling factor in case multiple screen are connected.
+FONT_SCALING_MULTI_SCREEN = 1.00
+# Font scaling factor in case only a single screen is connected.
+FONT_SCALING_SINGLE_SCREEN = 1.25
 
 
 # ***************************************************************************************
@@ -72,8 +77,71 @@ def main():
     if args.debug_enabled:
         logging.basicConfig(level=logging.DEBUG)
 
+    # Set the lat screen count to an invalid value
+    last_screen_count = -1
+
+    # Enter the program loop.
+    while True:
+        # Obtain the current number of connected screens.
+        current_screen_count = get_connected_screen_count()
+
+        # Only continue if the last screen count is initialized and the number of
+        # connected screens is valid
+        if last_screen_count != -1 and current_screen_count > 0:
+            # Detect change in screen count
+            if (current_screen_count != last_screen_count):
+                # Do we have multiple screens?
+                if current_screen_count > 1:
+                    # Set the font scaling for multiple screens
+                    set_gnome_font_scaling(FONT_SCALING_MULTI_SCREEN)
+                else:
+                    set_gnome_font_scaling(FONT_SCALING_SINGLE_SCREEN)
+
+        # Store screen count for the next loop iteration
+        last_screen_count = current_screen_count
+        # Sleep in between to not hog up the CPU.
+        time.sleep(5)
     # Give the exit code back to the caller
     return result
+
+
+def get_connected_screen_count():
+    """
+    Determines the number of screens that are currently connected.
+
+    :returns: Number of connected screens.
+    :rtype: int
+    """
+    result = 0
+
+    # Assemble and execute the commands that counts the number of connected screens. The command to run is:
+    # cmd = "xrandr -d :0 -q | grep ' connected' | wc - l"
+    proc_xrandr = subprocess.Popen(['xrandr', '-d', ':0', '-q'], stdout=subprocess.PIPE)
+    proc_grep   = subprocess.Popen(['grep', ' connected'], stdin=proc_xrandr.stdout, stdout=subprocess.PIPE)
+    proc_wc     = subprocess.Popen(['wc', '-l'], stdin=proc_grep.stdout, stdout=subprocess.PIPE)
+    # Wait for the last subprocess to exit and get the output.
+    cmd_output = proc_wc.communicate()[0]
+
+    # Output information for debugging purposes.
+    logging.debug('xrandr pipe command returned {} with output {}'.format(proc_wc.returncode, cmd_output))
+    # Process the output if the last subprocess was successful.
+    if proc_wc.returncode == 0:
+        try:
+            result = int(cmd_output.decode('utf-8').strip())
+        except:
+            result = 0
+
+    # Give the result back to the caller
+    return result
+
+
+def set_gnome_font_scaling(font_scaling):
+    """
+    Changes the font scaling configuration of the Gnome desktop environment.
+    """
+
+    # Assemble and execute the command for changing the font scaling.
+    subprocess.Popen(['gsettings', 'set', 'org.gnome.desktop.interface', 'text-scaling-factor', '{}'.format(font_scaling)])
 
 
 if __name__ == '__main__':
